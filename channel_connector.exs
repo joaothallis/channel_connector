@@ -16,14 +16,21 @@ defmodule ChannelConnector do
     ~H"""
     <h1>Channel Connector</h1>
     <div>
-      <h2>Inbound Messages</h2>
-      <pre><%= @inbound_messages %></pre>
+      <h2>Outbound Messages</h2>
+      <pre>
+        <%= for message <- @outbound_messages do %>
+          <%= message %>
+        <% end %>
+      </pre>
     </div>
     <div>
-      <h2>Outbound Messages</h2>
-      <pre><%= @outbound_messages %></pre>
+      <h2>Inbound Messages</h2>
+      <pre>
+        <%= for message <- @inbound_messages do %>
+          <%= message %>
+        <% end %>
+      </pre>
     </div>
-
 
     <form phx-submit="send_message">
       <input type="text" name="message"/>
@@ -37,8 +44,8 @@ defmodule ChannelConnector do
   end
 
   def handle_event("send_message", %{"message" => message}, socket) do
-    updated_outbound_messages = [message | socket.assigns.outbound_messages]
-    {:noreply, assign(socket, outbound_messages: updated_outbound_messages)}
+    updated_inbound_messages = [message | socket.assigns.inbound_messages]
+    {:noreply, assign(socket, inbound_messages: updated_inbound_messages)}
   end
 end
 
