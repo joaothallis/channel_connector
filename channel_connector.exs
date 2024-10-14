@@ -1,4 +1,4 @@
-Mix.install([{:phoenix_playground, "~> 0.1.6"}, {:tesla, "~> 1.12"}])
+Mix.install([{:phoenix_playground, "~> 0.1.6"}, {:tesla, "~> 1.12"}, {:bypass, "~> 2.1"}])
 
 defmodule ChannelConnector do
   @moduledoc """
@@ -69,11 +69,42 @@ defmodule ChannelConnector do
   defmodule Turn do
     use Tesla
 
-    @turn_url System.get_env("TURN_URL", "https://whatsapp.turn.io/")
-
-    plug(Tesla.Middleware.BaseUrl, @turn_url)
+    plug(Tesla.Middleware.BaseUrl, url())
     plug(Tesla.Middleware.JSON)
     plug(Tesla.Middleware.BearerAuth, token: System.fetch_env!("TURN_TOKEN"))
+
+    defp url, do: System.get_env("TURN_URL", "https://whatsapp.turn.io/")
+  end
+end
+
+ExUnit.start()
+
+defmodule ChannelConnectorTest do
+  use ExUnit.Case
+  use PhoenixPlayground.Test, live: ChannelConnector
+
+  import Phoenix.LiveViewTest
+
+  test "send_message_to_channel" do
+    channel = "4a9cf5a8-f602-435b-8b80-ec97d83291a7"
+    bypass = Bypass.open()
+
+    Bypass.expect(bypass, "POST", "/v1/numbers/#{channel}/messages", fn conn ->
+      Plug.Conn.send_resp(conn, 200, Jason.encode!(%{success: true}))
+    end)
+
+    System.put_env("TURN_URL", "http://localhost:#{bypass.port}")
+    System.put_env("CHANNEL", channel)
+    System.put_env("TURN_TOKEN", "a-token")
+    {:ok, view, _html} = live(build_conn(), "/")
+
+    # Simulate sending a message
+    message = "test message"
+    form = element(view, "form[phx-submit=send_message]")
+    render_submit(form, %{"message" => message})
+
+    # Re-render the view and check if the message appears in the outbound messages
+    assert render(view) =~ message
   end
 end
 
