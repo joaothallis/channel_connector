@@ -108,4 +108,6 @@ defmodule ChannelConnectorTest do
   end
 end
 
-PhoenixPlayground.start(live: ChannelConnector)
+if Mix.env() != :test do
+  PhoenixPlayground.start(live: ChannelConnector)
+end
