@@ -1,4 +1,4 @@
-Mix.install([{:phoenix_playground, "~> 0.1.6"}])
+Mix.install([{:phoenix_playground, "~> 0.1.6"}, {:tesla, "~> 1.12"}])
 
 defmodule ChannelConnector do
   @moduledoc """
@@ -44,8 +44,36 @@ defmodule ChannelConnector do
   end
 
   def handle_event("send_message", %{"message" => message}, socket) do
+    send_message_to_channel(message)
     updated_inbound_messages = [message | socket.assigns.inbound_messages]
     {:noreply, assign(socket, inbound_messages: updated_inbound_messages)}
+  end
+
+  # https://whatsapp.turn.io/docs/api/channel_api#sending-inbound-messages-to-your-channel
+  defp send_message_to_channel(message) do
+    channel = System.fetch_env!("CHANNEL")
+
+    {:ok, %Tesla.Env{status: 200}} =
+      __MODULE__.Turn.post("/v1/numbers/#{channel}/messages", %{
+        contact: %{id: "the-user-id", profile: %{name: "User"}},
+        message: %{
+          type: "text",
+          text: message,
+          from: "the-user-id",
+          id: :crypto.strong_rand_bytes(16) |> Base.encode16(),
+          timestamp: DateTime.to_unix(DateTime.utc_now())
+        }
+      })
+  end
+
+  defmodule Turn do
+    use Tesla
+
+    @turn_url System.get_env("TURN_URL", "https://whatsapp.turn.io/")
+
+    plug(Tesla.Middleware.BaseUrl, @turn_url)
+    plug(Tesla.Middleware.JSON)
+    plug(Tesla.Middleware.BearerAuth, token: System.fetch_env!("TURN_TOKEN"))
   end
 end
 
